@@ -24,22 +24,22 @@ public class GeneratorEpub implements GeneratorEbook {
 
     @Override
     public void generate(Ebook ebook) {
-        List<Chapter> chapters = ebook.getChapters();
-        Path outputFile = ebook.getOutputFile();
+        List<Chapter> chapters = ebook.chapters();
+        Path outputFile = ebook.outputFile();
 
         try {
             var epub = new Book();
 
-            epub.getMetadata().addTitle(ebook.getTitle());
+            epub.getMetadata().addTitle(ebook.title());
             epub.getMetadata().addAuthor(
-                    new Author(ebook.getAuthor())
+                    new Author(ebook.author())
             );
 
             for (int i = 0; i < chapters.size(); i++) {
                 Chapter chapter = chapters.get(i);
 
-                String titleChapter = chapter.getTitle();
-                String htmlChapter = chapter.getHtml();
+                String titleChapter = chapter.title();
+                String htmlChapter = chapter.html();
 
                 try {
                     StringWriter stringWriter = new StringWriter();
@@ -70,7 +70,7 @@ public class GeneratorEpub implements GeneratorEbook {
                     epub.addSection(titleChapter, resourceChapter);
 
                 } catch (XMLStreamException e) {
-                    throw new IllegalStateException("Erro ao gerar capitulo do ebook " + chapter.getTitle(), e);
+                    throw new IllegalStateException("Erro ao gerar capitulo do ebook " + titleChapter, e);
                 }
             }
 

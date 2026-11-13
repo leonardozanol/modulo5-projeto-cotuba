@@ -1,6 +1,7 @@
 package br.com.unipds;
 
 import br.com.unipds.ebook.Ebook;
+import br.com.unipds.ebook.EbookBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.io.IOException;
@@ -14,7 +15,7 @@ import java.util.Properties;
 public class ReaderPropertiesEbookFile implements ReaderPropertiesEbook {
 
     @Override
-    public void read(Path directoryMd, Ebook ebook) {
+    public EbookProperties read(Path directoryMd) {
 
         Path fileProperties = directoryMd.resolve("ebook.properties");
 
@@ -38,9 +39,7 @@ public class ReaderPropertiesEbookFile implements ReaderPropertiesEbook {
         validatePropertie(authorPropertie);
         String author = properties.getProperty(authorPropertie);
 
-        ebook.setTitle(title);
-        ebook.setAuthor(author);
-
+        return new EbookProperties(title, author);
     }
 
     private void validatePropertie(String propertie) {
