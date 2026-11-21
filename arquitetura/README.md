@@ -45,13 +45,15 @@ Os leitores recebem recibos e notificações via email.
 
             Container(gerador, "Serviço Gerador de Eooks - Worker", "Java, Spring Boot", "Serviço que transofrma arquivos Markdown para PDF e EPUB")
 
-            ContainerDb(db, "BD Relacional", "PostgreSQL - AWS RDS", "Armazenar dados financeiros dos usuários, catalogo de livros")
+            Container(worker-pagamento, "Serviço Processamento de Pagamento - Worker", "Java, Spring Boot", "Serviço que integra com o Gatway de pagamentos")
 
-            ContainerQueue(broker, "Message Broker", "AWS SQS", "Fila de mensagens assincronas para desacoplar tarefas pesadas.")
+            ContainerDb(db, "BD Relacional", "PostgreSQL - AWS RDS", "Armazenar dados financeiros dos usuários, catalogo de livros")
 
             ContainerDb(cache, "Cache em Memória", "Redis - AWS Elasticache", "Armazena o catálogo de livros mais vendidos Top 100 par aleitura ultrarapida.")
 
             ContainerDb(storage, "Armazenamento de Arquivos", "Object Storage - AWS S3", "Capas dos Livros, PDF, EPUB - binários")
+
+            ContainerQueue(broker, "Message Broker", "AWS SQS", "Fila de mensagens assincronas para desacoplar tarefas pesadas e publica eventos de pagamentos.")
         }
 
         Rel(autor, webapp, "", "HTTPS")
@@ -65,19 +67,57 @@ Os leitores recebem recibos e notificações via email.
         Rel(api, pagamento, "Processar pagamentos", "HTTP/JSON")
         Rel(api, email, "Envia dados para enviar avisos, notificações e recibos", "HTTP/JSON")
         Rel(api, storage, "Salvar capa dos livros e PDF e gerar URLs de Download", "S3 API")
-        Rel(api, broker, "Solicita geração dos Ebooks pesados", "TCP???")
+        Rel(api, broker, "Solicita geração dos Ebooks pesados", "HTTP")
 
         Rel(gerador, git, "Clona repositorio do livro", "SSH")
         Rel(gerador, storage, "Faz upload de PDF e EPUB gerados", "SSH")
         
-        Rel(broker, gerador, "GeracaoEbookCommand - conumido pelo gerador", "TCP???")
+        Rel(worker-pagamento, pagamento, "Processa a transação de pagamento integrando com o Gatway de pagamento", "HTTPsS/JSON")
+
+        Rel(gerador, broker, "GeracaoEbookCommand - consumido pelo gerador", "HTTP")
+        Rel(worker-pagamento, broker, "PagamentoEvent - consumido pelo worker de pagamento", "HTTP")
 
         System_Ext(git, "Provedor de Git Externo", "Armazenar o código fonte Mardown e Imagens dos livros")
         System_Ext(pagamento, "Stripe - Gatway de Pagamentos", "Processar pagamento de venda - Pix e Cartão de Crédito")
         System_Ext(email, "AWS SES - Sistema de Email externo", "Enviar recibos, notificações e avisos para os usuários")
 ```
 
+## Diagrama de Sequência
+
+```mermaid
+    sequenceDiagram
+        actor User as Usuário
+        participant FrontEnd as FrontEnd (Web)
+        participant API as API Principal
+        participant RD as Redis
+        participant MQ as Message Broker (Fila)
+        participant W as Worker de Pagamentos
+        participant GE as Gateway Externo
+
+        User->>FrontEnd: Clica em "Comprar" (1ª vez)
+        FrontEnd->>API: POST /checkout (Header: Idempotency-Key=123-ABC)
+        API->>RD: Verifica chave '123-ABC' (Lock)
+        RD-->>API: Não Encotrada (Nova Compra)
+        API->>RD: Insere Pedido (Status: PENDENTE, Chave: 123-ABC)
+        API->> MQ: Publica evento "Processar_Pagamento"
+        API-->>FrontEnd: HTTP 202 Accepted (Status: Processando)
+        FrontEnd->>User: Exibe tela de "Aguarde..."
+
+        User->>FrontEnd: Clica em "Comprar" (2ª vez, 3ª vez, 4ª vez...)
+        FrontEnd->>API: POST /checkout (Header: Idempotency-Key=123-ABC)
+        API->>RD: Verifica chave '123-ABC' (Lock)
+        RD-->>API: Encotrada (Pedido já existe)
+        API-->>FrontEnd: HTTP 200 OK (Retorna o Status: PENDENTE)
+
+        MQ-->>W: Woker consome "Procesar Pagamento"
+        W->>GE: POST /charge (Comunicação Síncrona Externa)
+        GE-->>W: HTTP 503 / Timeout Exception
+
+        W->>MQ: NACK / Devolve mensagem para Fial (Retry com Backoff)
+```
+
 ## Decisões Arquiteturais (ADRs)
 
 - [ADR 001: Geração de Ebooks via Mensageria Assincrona](adr/adr-001-geracao-ebooks-assincrona.md)
 - [ADR 002: Introdução de Cache em Memória para o Catálogo de E-Books](adr/adr-002-cache-catalogo.md)
+- [ADR 003: Resiliência e Idempotência para o Fluxo de Pagamentos](adr/adr-003-resiliencia-pagamentos.md)
