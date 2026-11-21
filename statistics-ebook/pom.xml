@@ -43,13 +43,10 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <artifactSet>
                                 <excludes>
-                                    <exclude>br.com.unipds:cotuba</exclude>
-                                    <exclude>*:commons-cli</exclude>
-                                    <exclude>*:commonmark</exclude>
-                                    <exclude>*:epublib-core</exclude>
-                                    <exclude>com.itextpdf:*</exclude>
+                                    <exclude>br.com.unipds:cotuba-domain</exclude>
+                                    <exclude>br.com.unipds:cotuba-plugin</exclude>
+                                    <exclude>io.soabase.record-builder:*</exclude>
                                     <exclude>org.jboss.weld.se:*</exclude>
-                                    <exclude>*:record-builder-core</exclude>
                                     <exclude>org.jmolecules:*</exclude>
                                 </excludes>
                             </artifactSet>
